@@ -1,0 +1,62 @@
+appId: com.johnmodica.ai
+productName: John Modica AI
+copyright: Copyright © 2026 John Modica
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - "**/*"
+  - "!dist/**"
+  - "!.git/**"
+  - "!*.md"
+  - "!node_modules/.cache/**"
+  - "!**/*.map"
+
+extraResources:
+  - from: assets/
+    to: assets/
+    filter:
+      - "**/*"
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Utility
+  icon: assets/icon.png
+  maintainer: John Modica
+  synopsis: John Modica AI Shell
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  icon: assets/icon.icns
+  category: public.app-category.developer-tools
+
+dmg:
+  background: assets/dmg-background.png
+  window:
+    width: 540
+    height: 380
+
+publish: null
+
+npmRebuild: true
+buildDependenciesFromSource: false
