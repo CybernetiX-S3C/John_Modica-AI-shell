@@ -1,0 +1,49 @@
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+dist/
+build/
+out/
+*.deb
+*.AppImage
+*.snap
+*.exe
+*.dmg
+*.zip
+
+# ── Environment ───────────────────────────────────────────────────────────────
+.env
+.env.*
+*.log
+
+# ── Voice sample & model (user provides their own) ───────────────────────────
+assets/voices/john-voice.wav
+assets/voices/john-voice-embed.json
+# XTTS-v2 model (~1.8 GB) lives in ~/.local/share/tts/ — never in repo
+
+# ── Downloaded asset bundles (fetched by setup.sh) ───────────────────────────
+assets/xterm/xterm.js
+assets/xterm/xterm.css
+assets/xterm/addon-fit.js
+assets/marked/marked.min.js
+
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+
+# ── OS junk ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ── SQLite DB (created at runtime) ───────────────────────────────────────────
+*.sqlite
+*.db
