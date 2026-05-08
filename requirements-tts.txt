@@ -1,0 +1,42 @@
+# ─── requirements-tts.txt ─────────────────────────────────────────────────────
+# John Modica AI Shell — Local TTS Server Dependencies
+#
+# Install:   pip install -r requirements-tts.txt
+# Python:    3.9 – 3.11 recommended  (3.12 may have torch compat issues)
+# GPU:       NVIDIA CUDA optional — CPU works fine, slightly slower synthesis
+#
+# DISK SPACE:
+#   These packages + XTTS-v2 model = ~4 GB total first time
+#   Model cached at: ~/.local/share/tts/  (never in repo)
+#   Packages cached at: pip cache (~2 GB)
+#
+# WHAT EACH DOES:
+#   TTS          — Coqui Text-to-Speech (XTTS-v2 engine, voice cloning)
+#   torch        — PyTorch (XTTS-v2 neural network runtime)
+#   torchaudio   — Audio processing for PyTorch
+#   numpy        — Array math (audio sample processing)
+#   soundfile    — WAV read/write
+#   librosa      — Audio analysis (VAD, resampling)
+#   flask        — HTTP server wrapper (used if switching from stdlib http.server)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Core TTS engine ───────────────────────────────────────────────────────────
+TTS>=0.22.0
+
+# ── PyTorch (CPU build — smaller, works everywhere) ───────────────────────────
+# For GPU (NVIDIA CUDA 11.8):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+# For GPU (NVIDIA CUDA 12.1):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+# For CPU only (default — no GPU needed):
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# ── Audio utilities ───────────────────────────────────────────────────────────
+numpy>=1.24.0
+soundfile>=0.12.1
+librosa>=0.10.0
+
+# ── HTTP server (used by tts-server.py stdlib http.server — no extra deps) ───
+# flask is optional — only needed if you swap to Flask in tts-server.py
+# flask>=3.0.0
