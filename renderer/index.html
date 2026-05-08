@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <!--
+    CSP:
+    - 'unsafe-eval'  required by xterm.js FitAddon
+    - blob:          required by voice engine MediaRecorder
+    - webview tags   handle their own CSP internally — no need to add external URLs here
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' blob:; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src * blob:; font-src 'self' data:; media-src 'self' blob:; child-src 'self' blob:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>John Modica AI</title>
+  <link rel="stylesheet" href="components/style.css"/>
+  <link rel="stylesheet" href="../assets/xterm/xterm.css"/>
+<style>
+/* ── Sidebar modes section ─────────────────────────────────────────── */
+.modes-label { margin-top: 8px; }
+.mode-btn { cursor: pointer; }
+.mode-btn.active-mode {
+  background: var(--purple-fade);
+  color: var(--purple-glow);
+  border-left-color: var(--purple-main);
+}
+.mode-btn:hover { background: var(--bg-3); }
+</style>
+</head>
+<body>
+
+<!-- ══ Loading overlay ═══════════════════════════════════════════════════════ -->
+<div id="loading-overlay">
+  <div class="loading-logo">⬡</div>
+  <div class="loading-text">JOHN MODICA AI</div>
+  <div class="loading-sub" id="loading-sub">Initialising systems…</div>
+  <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+</div>
+
+<!-- ══ Toast container ═══════════════════════════════════════════════════════ -->
+<div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+<!-- ══ Modal overlay ═════════════════════════════════════════════════════════ -->
+<div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <div class="modal-header">
+      <span id="modal-title">Dialog</span>
+      <button class="modal-close" id="modal-close-btn" aria-label="Close dialog">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- ══ Keyboard shortcuts overlay ════════════════════════════════════════════ -->
+<div id="shortcuts-overlay" hidden>
+  <div class="shortcuts-panel">
+    <div class="shortcuts-header">
+      <span>⌨ Keyboard Shortcuts</span>
+      <button id="shortcuts-close">✕</button>
+    </div>
+    <div class="shortcuts-grid">
+      <div class="sc-section">CHAT</div>
+      <div class="sc-row"><kbd>Enter</kbd><span>Send message</span></div>
+      <div class="sc-row"><kbd>Shift+Enter</kbd><span>New line</span></div>
+      <div class="sc-row"><kbd>↑</kbd><span>Edit last message</span></div>
+      <div class="sc-row"><kbd>Ctrl+/</kbd><span>Show shortcuts</span></div>
+      <div class="sc-row"><kbd>Ctrl+Space</kbd><span>Push-to-talk</span></div>
+      <div class="sc-section">TERMINAL</div>
+      <div class="sc-row"><kbd>Ctrl+Shift+T</kbd><span>New terminal tab</span></div>
+      <div class="sc-row"><kbd>Ctrl+Shift+W</kbd><span>Close terminal tab</span></div>
+      <div class="sc-row"><kbd>Ctrl+Shift+K</kbd><span>Clear terminal</span></div>
+      <div class="sc-section">NAVIGATION</div>
+      <div class="sc-row"><kbd>Ctrl+1</kbd><span>Chat panel</span></div>
+      <div class="sc-row"><kbd>Ctrl+2</kbd><span>Terminal panel</span></div>
+      <div class="sc-row"><kbd>Ctrl+3</kbd><span>Platforms panel</span></div>
+      <div class="sc-row"><kbd>Ctrl+4</kbd><span>Browser panel</span></div>
+      <div class="sc-row"><kbd>Ctrl+5</kbd><span>Plugins panel</span></div>
+      <div class="sc-row"><kbd>Ctrl+,</kbd><span>Settings</span></div>
+      <div class="sc-row"><kbd>Ctrl+N</kbd><span>New chat</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Main app shell ════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ─────────────────────── SIDEBAR ───────────────────────────────────── -->
+  <aside id="sidebar" aria-label="Navigation sidebar">
+
+    <div id="sidebar-header">
+      <div id="sidebar-logo" aria-hidden="true">⬡</div>
+      <div id="sidebar-title">MODICA AI</div>
+      <button id="sidebar-toggle" title="Collapse sidebar" aria-label="Toggle sidebar">‹</button>
+    </div>
+
+    <nav id="sidebar-nav" aria-label="Panel navigation">
+      <div class="nav-section-label">WORKSPACE</div>
+
+      <div class="nav-item active" data-panel="chat" role="button" tabindex="0"
+           title="Chat — AI conversation" aria-label="Chat panel">
+        <span class="nav-icon" aria-hidden="true">💬</span>
+        <span class="nav-label">Chat</span>
+      </div>
+
+      <div class="nav-item" data-panel="terminal" role="button" tabindex="0"
+           title="Live Kali PTY + AI sim terminal" aria-label="Terminal panel">
+        <span class="nav-icon" aria-hidden="true">⌨</span>
+        <span class="nav-label">Terminal</span>
+        <span class="nav-badge live-badge" title="Live PTY active">LIVE</span>
+      </div>
+
+      <div class="nav-item" data-panel="platforms" role="button" tabindex="0"
+           title="AI Platforms — Character AI, Blackbox, Gemini + Inject John" aria-label="AI Platforms panel">
+        <span class="nav-icon" aria-hidden="true">⬡</span>
+        <span class="nav-label">Platforms</span>
+        <span class="nav-badge inject-badge" title="John Inject available">INJECT</span>
+      </div>
+
+      <div class="nav-item" data-panel="webview" role="button" tabindex="0"
+           title="Embedded browser" aria-label="Browser panel">
+        <span class="nav-icon" aria-hidden="true">🌐</span>
+        <span class="nav-label">Browser</span>
+      </div>
+
+      <div class="nav-section-label">TOOLS</div>
+
+      <div class="nav-item" data-panel="plugins" role="button" tabindex="0"
+           title="Plugin manager" aria-label="Plugins panel">
+        <span class="nav-icon" aria-hidden="true">🔌</span>
+        <span class="nav-label">Plugins</span>
+      </div>
+
+      <div class="nav-item" data-panel="settings" role="button" tabindex="0"
+           title="Settings" aria-label="Settings panel">
+        <span class="nav-icon" aria-hidden="true">⚙</span>
+        <span class="nav-label">Settings</span>
+      </div>
+      <div class="nav-section-label modes-label">MODES</div>
+      <div class="nav-item mode-btn" data-mode="general" role="button" tabindex="0"
+           title="Mode: General" aria-label="General mode">
+        <span class="nav-icon" aria-hidden="true">💬</span>
+        <span class="nav-label">General</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="terminal" role="button" tabindex="0"
+           title="Mode: Terminal" aria-label="Terminal mode">
+        <span class="nav-icon" aria-hidden="true">⌨</span>
+        <span class="nav-label">Terminal</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="kali" role="button" tabindex="0"
+           title="Mode: Kali Linux" aria-label="Kali Linux mode">
+        <span class="nav-icon" aria-hidden="true">🐉</span>
+        <span class="nav-label">Kali Linux</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="dalle" role="button" tabindex="0"
+           title="Mode: DALL-E" aria-label="DALL-E mode">
+        <span class="nav-icon" aria-hidden="true">🎨</span>
+        <span class="nav-label">DALL-E</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="time-traveler" role="button" tabindex="0"
+           title="Mode: Time Traveler" aria-label="Time Traveler mode">
+        <span class="nav-icon" aria-hidden="true">⏰</span>
+        <span class="nav-label">Time Traveler</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="thought-experiment" role="button" tabindex="0"
+           title="Mode: Thought Experiment" aria-label="Thought Experiment mode">
+        <span class="nav-icon" aria-hidden="true">🧠</span>
+        <span class="nav-label">Thought Experiment</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="mysteries" role="button" tabindex="0"
+           title="Mode: Mysteries" aria-label="Mysteries mode">
+        <span class="nav-icon" aria-hidden="true">🔍</span>
+        <span class="nav-label">Mysteries</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="ai-bard" role="button" tabindex="0"
+           title="Mode: AI Bard" aria-label="AI Bard mode">
+        <span class="nav-icon" aria-hidden="true">📖</span>
+        <span class="nav-label">AI Bard</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="cybersec-trivia" role="button" tabindex="0"
+           title="Mode: Cybersec Trivia" aria-label="Cybersec Trivia mode">
+        <span class="nav-icon" aria-hidden="true">🏆</span>
+        <span class="nav-label">Cybersec Trivia</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="red-team" role="button" tabindex="0"
+           title="Mode: Red Team" aria-label="Red Team mode">
+        <span class="nav-icon" aria-hidden="true">🔴</span>
+        <span class="nav-label">Red Team</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="blue-team" role="button" tabindex="0"
+           title="Mode: Blue Team" aria-label="Blue Team mode">
+        <span class="nav-icon" aria-hidden="true">🔵</span>
+        <span class="nav-label">Blue Team</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="purple-team" role="button" tabindex="0"
+           title="Mode: Purple Team" aria-label="Purple Team mode">
+        <span class="nav-icon" aria-hidden="true">🟣</span>
+        <span class="nav-label">Purple Team</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="god-mode" role="button" tabindex="0"
+           title="Mode: God Mode" aria-label="God Mode mode">
+        <span class="nav-icon" aria-hidden="true">⚡</span>
+        <span class="nav-label">God Mode</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="networking" role="button" tabindex="0"
+           title="Mode: Networking" aria-label="Networking mode">
+        <span class="nav-icon" aria-hidden="true">🌐</span>
+        <span class="nav-label">Networking</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="risk" role="button" tabindex="0"
+           title="Mode: Risk" aria-label="Risk mode">
+        <span class="nav-icon" aria-hidden="true">⚠️</span>
+        <span class="nav-label">Risk</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="big-data" role="button" tabindex="0"
+           title="Mode: Big Data" aria-label="Big Data mode">
+        <span class="nav-icon" aria-hidden="true">📊</span>
+        <span class="nav-label">Big Data</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="pure-intel" role="button" tabindex="0"
+           title="Mode: Pure Intel" aria-label="Pure Intel mode">
+        <span class="nav-icon" aria-hidden="true">🕵️</span>
+        <span class="nav-label">Pure Intel</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="programming" role="button" tabindex="0"
+           title="Mode: Programming" aria-label="Programming mode">
+        <span class="nav-icon" aria-hidden="true">💻</span>
+        <span class="nav-label">Programming</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="ai-mode" role="button" tabindex="0"
+           title="Mode: AI Mode" aria-label="AI Mode mode">
+        <span class="nav-icon" aria-hidden="true">🤖</span>
+        <span class="nav-label">AI Mode</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="web-design" role="button" tabindex="0"
+           title="Mode: Web Design" aria-label="Web Design mode">
+        <span class="nav-icon" aria-hidden="true">🖥</span>
+        <span class="nav-label">Web Design</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="resume" role="button" tabindex="0"
+           title="Mode: Resume" aria-label="Resume mode">
+        <span class="nav-icon" aria-hidden="true">📄</span>
+        <span class="nav-label">Resume</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="career" role="button" tabindex="0"
+           title="Mode: Career" aria-label="Career mode">
+        <span class="nav-icon" aria-hidden="true">💼</span>
+        <span class="nav-label">Career</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="school" role="button" tabindex="0"
+           title="Mode: School" aria-label="School mode">
+        <span class="nav-icon" aria-hidden="true">🎓</span>
+        <span class="nav-label">School</span>
+      </div>
+      <div class="nav-item mode-btn" data-mode="daily-feed" role="button" tabindex="0"
+           title="Mode: Daily Feed" aria-label="Daily Feed mode">
+        <span class="nav-icon" aria-hidden="true">📰</span>
+        <span class="nav-label">Daily Feed</span>
+      </div>
+    </nav>
+
+    <!-- ── Conversation history ─────────────────────────────────────────── -->
+    <div id="sidebar-history">
+      <div class="history-header">
+        <span>HISTORY</span>
+        <button id="new-chat-btn" title="New chat" aria-label="New chat">＋</button>
+      </div>
+      <div id="history-list" role="list" aria-label="Conversation history"></div>
+    </div>
+
+    <!-- ── Sidebar footer ────────────────────────────────────────────────── -->
+    <div id="sidebar-footer">
+      <div id="status-dot" class="status-dot offline" title="AI connection status"></div>
+      <span id="status-text" class="status-text">Offline</span>
+      <div id="session-tokens" class="session-tokens" title="Tokens used this session">0 tk</div>
+    </div>
+
+  </aside>
+
+  <!-- ─────────────────────── MAIN CONTENT ─────────────────────────────── -->
+  <main id="main-content">
+
+    <!-- ════════════════════ CHAT PANEL ══════════════════════════════════ -->
+    <section id="panel-chat" class="panel active" aria-label="Chat panel">
+
+      <!-- Chat header -->
+      <div class="panel-header">
+        <div class="panel-title">
+          <span id="chat-conv-title">New Chat</span>
+          <span id="mode-badge" class="mode-badge" title="Active mode">general</span>
+        </div>
+        <div class="header-actions">
+          <select id="mode-select" title="Switch mode" aria-label="Switch AI mode">
+            <option value="general">General</option>
+            <option value="terminal">Terminal</option>
+            <option value="kali">Kali</option>
+            <option value="dalle">DALL-E</option>
+            <option value="time-traveler">Time Traveler</option>
+            <option value="thought-experiment">Thought Experiment</option>
+            <option value="mysteries">Mysteries Unraveler</option>
+            <option value="ai-bard">AI Bard</option>
+            <option value="cybersec-trivia">Cybersec Trivia</option>
+            <option value="red-team">Red Team</option>
+            <option value="blue-team">Blue Team</option>
+            <option value="purple-team">Purple Team</option>
+            <option value="god-mode">God Mode</option>
+            <option value="networking">Networking</option>
+            <option value="risk">Risk</option>
+            <option value="big-data">Big Data</option>
+            <option value="pure-intel">Pure Intel</option>
+            <option value="programming">Programming Language</option>
+            <option value="ai-mode">AI</option>
+            <option value="web-design">Web Design</option>
+            <option value="resume">Resume</option>
+            <option value="career">Career</option>
+            <option value="school">School</option>
+            <option value="daily-feed">Daily Feed</option>
+          </select>
+          <select id="model-select" title="Select model" aria-label="Select AI model">
+            <option value="tinyllama">tinyllama</option>
+            <option value="llama3">llama3</option>
+            <option value="mistral">mistral</option>
+            <option value="phi3">phi3</option>
+            <option value="codellama">codellama</option>
+            <option value="neural-chat">neural-chat</option>
+          </select>
+          <button id="export-chat-btn" title="Export chat" aria-label="Export chat">⬇</button>
+          <button id="shortcuts-btn" title="Keyboard shortcuts (Ctrl+/)" aria-label="Show shortcuts">⌨</button>
+          <button id="clear-chat-btn" title="Clear messages" aria-label="Clear chat">🗑</button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="messages-container" role="log" aria-live="polite" aria-label="Chat messages">
+        <div id="messages-list"></div>
+        <div id="typing-indicator" hidden>
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        </div>
+      </div>
+
+      <!-- Input area -->
+      <div id="chat-input-area">
+        <div id="chat-input-wrapper">
+          <button id="voice-btn" title="Click to toggle mic / Push-to-talk (Ctrl+Space)" aria-label="Voice input" aria-pressed="false">🎤</button>
+          <button id="tts-toggle-btn" title="Toggle auto-speak" aria-label="TTS toggle" style="display:none;">🔇</button>
+          <textarea id="chat-input"
+                    placeholder="Message John Modica AI… (Enter to send, Shift+Enter for new line)"
+                    rows="1"
+                    aria-label="Chat input"
+                    autocomplete="off"
+                    spellcheck="true"></textarea>
+          <button id="send-btn" title="Send (Enter)" aria-label="Send message">➤</button>
+        </div>
+        <div id="chat-input-meta">
+          <span id="input-char-count">0</span>
+          <span class="meta-sep">·</span>
+          <span id="routing-indicator" title="AI routing mode">local</span>
+          <span class="meta-sep">·</span>
+          <span id="stream-status"></span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ════════════════════ TERMINAL PANEL ══════════════════════════════ -->
+    <section id="panel-terminal" class="panel" aria-label="Terminal panel">
+
+      <!-- Terminal header -->
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>Terminal</span>
+          <span class="mode-badge live-badge" title="Connected to live Kali PTY">LIVE PTY</span>
+        </div>
+        <div class="header-actions">
+          <button id="new-term-btn"      title="New terminal tab (Ctrl+Shift+T)" aria-label="New tab">＋ Tab</button>
+          <button id="term-dual-mode-btn" title="Add AI-Simulated Terminal tab"  aria-label="Add AI sim tab">🤖 AI-SIM</button>
+          <button id="term-clear-btn"    title="Clear active terminal (Ctrl+Shift+K)" aria-label="Clear">⌫ Clear</button>
+          <button id="term-kill-btn"     title="Send Ctrl+C to active process"   aria-label="Kill process">⏹ Kill</button>
+        </div>
+      </div>
+
+      <!-- Tab bar -->
+      <div id="terminal-tab-bar" role="tablist" aria-label="Terminal tabs"></div>
+
+      <!-- Dual-mode info banner -->
+      <div id="terminal-mode-info" class="terminal-mode-banner">
+        <div class="tmb-live">
+          <span class="tmb-dot live"></span>
+          <strong>LIVE PTY</strong> — Real Kali Linux shell. Runs nmap, msfconsole, python, writes files.
+        </div>
+        <div class="tmb-sep">|</div>
+        <div class="tmb-sim">
+          <span class="tmb-dot sim"></span>
+          <strong>AI SIMULATED</strong> — LLM-powered terminal. Type "Kali Mode" in Chat or click 🤖 AI-SIM.
+        </div>
+      </div>
+
+      <!-- Terminal pane -->
+      <div id="terminal-container" aria-label="Terminal output"></div>
+
+      <!-- AI bridge bar -->
+      <div id="terminal-ai-bar" aria-label="AI terminal assistant">
+        <input id="term-ai-input" type="text" placeholder="Ask AI: suggest a command…" aria-label="AI command suggestion input"/>
+        <button id="term-ai-explain"   title="Explain terminal output">💡 Explain</button>
+        <button id="term-ai-suggest"   title="Suggest next command">🔮 Suggest</button>
+        <button id="term-ai-fix"       title="Fix last error">🔧 Fix Error</button>
+        <button id="term-ai-kali-mode" title="Activate Kali Mode in Chat">⚔ Kali Mode</button>
+      </div>
+
+    </section>
+
+    <!-- ════════════════════ PLATFORMS PANEL ══════════════════════════════ -->
+    <section id="panel-platforms" class="panel" aria-label="AI Platforms panel">
+
+      <!-- Platforms header -->
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>AI Platforms</span>
+          <span class="mode-badge" id="platform-current-label">Character AI</span>
+        </div>
+        <div class="header-actions">
+          <!-- Inject controls -->
+          <button id="platform-inject-btn"
+                  class="inject-btn primary-inject"
+                  title="Inject the full John Modica persona prompt into this platform's chat"
+                  aria-label="Inject John Modica persona">
+            ⬡ Inject John
+          </button>
+          <button id="platform-inject-submit-btn"
+                  class="inject-btn"
+                  title="Inject John persona AND auto-submit"
+                  aria-label="Inject and submit">
+            ⬡⬡ Inject + Send
+          </button>
+          <button id="platform-copy-prompt-btn"
+                  class="inject-btn secondary-inject"
+                  title="Copy persona prompt to clipboard"
+                  aria-label="Copy prompt to clipboard">
+            📋 Copy Prompt
+          </button>
+          <button id="platform-login-btn"
+                  title="Go to login page for this platform"
+                  aria-label="Go to login">
+            🔑 Login
+          </button>
+          <button id="platform-reload-btn"
+                  title="Reload this platform"
+                  aria-label="Reload">
+            ↺ Reload
+          </button>
+          <button id="platform-back-btn"   title="Back"    aria-label="Back">◁</button>
+          <button id="platform-forward-btn" title="Forward" aria-label="Forward">▷</button>
+        </div>
+      </div>
+
+      <!-- Platform status bar -->
+      <div id="platform-status-bar" class="platform-status">
+        <span id="platform-status-text">Select a platform and click ⬡ Inject John after logging in.</span>
+        <span id="platform-inject-indicator" class="inject-indicator hidden">⬡ Injected</span>
+      </div>
+
+      <!-- Platform tab bar -->
+      <div id="platform-tabs" class="platform-tab-bar" role="tablist" aria-label="AI Platforms">
+        <!-- Populated by ai-platforms.js PlatformManager.init() -->
+      </div>
+
+      <!-- Platform webview container -->
+      <div id="platforms-container" class="platforms-container">
+        <!-- Populated by ai-platforms.js — one <webview> per platform -->
+      </div>
+
+    </section>
+
+    <!-- ════════════════════ BROWSER PANEL ════════════════════════════════ -->
+    <section id="panel-webview" class="panel" aria-label="Browser panel">
+
+      <!-- Browser header / toolbar -->
+      <div class="panel-header browser-toolbar">
+        <div class="browser-nav-row">
+          <button id="browser-back"      title="Back"    aria-label="Back">◁</button>
+          <button id="browser-forward"   title="Forward" aria-label="Forward">▷</button>
+          <button id="browser-refresh"   title="Refresh" aria-label="Refresh">↺</button>
+          <button id="browser-stop"      title="Stop"    aria-label="Stop" class="hidden">✕</button>
+          <button id="browser-home"      title="Home"    aria-label="Home">⌂</button>
+          <img   id="browser-favicon"   class="browser-favicon" src="" alt="" aria-hidden="true"/>
+          <div   id="browser-spinner"   class="browser-spinner" aria-hidden="true"></div>
+          <input id="url-bar"
+                 type="text"
+                 class="url-bar"
+                 placeholder="Enter URL or search…"
+                 aria-label="Address bar"
+                 spellcheck="false"
+                 autocomplete="off"/>
+          <button id="browser-bookmark"  title="Bookmark this page" aria-label="Bookmark">🔖</button>
+          <button id="browser-bm-btn"    title="Bookmarks"          aria-label="Bookmarks">☆</button>
+          <button id="browser-new-tab"   title="New tab"            aria-label="New tab">＋</button>
+        </div>
+
+        <!-- AI browser actions -->
+        <div class="browser-ai-row">
+          <button id="browser-ai-page"       title="Summarise this page with AI"      aria-label="AI summarise">🧠 Summarise</button>
+          <button id="browser-ai-links"      title="Extract and analyse all links"    aria-label="AI links">🔗 Links</button>
+          <button id="browser-ai-selection"  title="Analyse selected text"            aria-label="AI selection">✂ Selection</button>
+          <button id="browser-ai-screenshot" title="Screenshot to AI (v2.1)"          aria-label="Screenshot">📸 Screenshot</button>
+          <button id="browser-devtools"      title="Open WebView DevTools"            aria-label="DevTools">🔧 DevTools</button>
+        </div>
+      </div>
+
+      <!-- Browser tab bar -->
+      <div id="browser-tab-bar" class="browser-tab-bar" role="tablist" aria-label="Browser tabs">
+        <button id="browser-new-tab-btn" title="New tab" class="btab-new">＋</button>
+      </div>
+
+      <!-- Status bar -->
+      <div id="browser-status-bar" class="browser-status" aria-live="polite"></div>
+
+      <!-- Bookmarks panel (dropdown) -->
+      <div id="bookmarks-panel" class="bookmarks-panel" aria-label="Bookmarks">
+        <div class="bookmarks-header">
+          <span>Bookmarks</span>
+          <button id="bookmarks-close" onclick="document.getElementById('bookmarks-panel').classList.remove('open')">✕</button>
+        </div>
+        <div id="bookmarks-list" class="bookmarks-list"></div>
+      </div>
+
+      <!-- Webview container -->
+      <div id="browser-webview-container" class="webview-container">
+        <webview id="webview-frame"
+                 src="https://www.google.com"
+                 allowpopups
+                 useragent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                 style="width:100%;height:100%;border:none;">
+        </webview>
+      </div>
+
+    </section>
+
+    <!-- ════════════════════ PLUGINS PANEL ════════════════════════════════ -->
+    <section id="panel-plugins" class="panel" aria-label="Plugins panel">
+      <div class="panel-header">
+        <div class="panel-title">Plugins</div>
+        <div class="header-actions">
+          <button id="plugins-refresh-btn" aria-label="Refresh plugins">↺ Refresh</button>
+          <button id="plugins-install-btn" aria-label="Install plugin">＋ Install</button>
+        </div>
+      </div>
+      <div id="plugins-container" class="plugins-container">
+        <div id="plugins-list"></div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ SETTINGS PANEL ══════════════════════════════ -->
+    <section id="panel-settings" class="panel" aria-label="Settings panel">
+      <div class="panel-header">
+        <div class="panel-title">⚙ Settings</div>
+        <div class="header-actions">
+          <button id="settings-save" class="btn-primary" aria-label="Save settings">💾 Save</button>
+        </div>
+      </div>
+      <div class="settings-container">
+
+        <!-- ── AI / Routing ─────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">AI Routing</div>
+
+          <div class="setting-row">
+            <label for="s-routing-mode">Routing Mode</label>
+            <select id="s-routing-mode" data-key="routingMode">
+              <option value="local">Local (Ollama)</option>
+              <option value="cloud">Cloud only</option>
+              <option value="auto">Auto (local → cloud fallback)</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label for="s-ollama-url">Ollama URL</label>
+            <input id="s-ollama-url" type="text" data-key="ollamaUrl" placeholder="http://localhost:11434"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-ollama-model">Default Model</label>
+            <input id="s-ollama-model" type="text" data-key="ollamaModel" placeholder="tinyllama"/>
+          </div>
+          <div class="setting-row">
+            <button id="settings-test-ollama" class="btn-secondary">Test Ollama</button>
+            <span id="ollama-test-result" class="test-result"></span>
+          </div>
+        </div>
+
+        <!-- ── Cloud AI ──────────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">Cloud AI</div>
+          <div class="setting-row">
+            <label for="s-cloud-url">Cloud API URL</label>
+            <input id="s-cloud-url" type="text" data-key="cloudUrl" placeholder="https://api.openai.com/v1"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-cloud-key">API Key</label>
+            <input id="s-cloud-key" type="password" data-key="cloudApiKey" placeholder="sk-…"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-cloud-model">Cloud Model</label>
+            <input id="s-cloud-model" type="text" data-key="cloudModel" placeholder="gpt-4o-mini"/>
+          </div>
+          <div class="setting-row">
+            <button id="settings-test-cloud" class="btn-secondary">Test Cloud</button>
+            <span id="cloud-test-result" class="test-result"></span>
+          </div>
+        </div>
+
+        <!-- ── AI Platforms ──────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">AI Platforms</div>
+          <div class="setting-desc">
+            These settings manage the embedded AI platform webviews (Character AI, Blackbox, Gemini, etc).
+            Each platform uses a persistent login session — log in once and it stays.
+          </div>
+          <div class="setting-row">
+            <label for="s-default-platform">Default Platform</label>
+            <select id="s-default-platform" data-key="defaultPlatform">
+              <option value="characterai">Character AI</option>
+              <option value="blackbox">Blackbox AI</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="huggingchat">HuggingChat</option>
+              <option value="chatgpt">ChatGPT</option>
+              <option value="claude">Claude</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label for="s-inject-autosubmit">Auto-Submit on Inject</label>
+            <input id="s-inject-autosubmit" type="checkbox" data-key="injectAutoSubmit"/>
+            <span class="setting-hint">If enabled, ⬡ Inject John will also submit the prompt automatically.</span>
+          </div>
+          <div class="setting-row">
+            <label for="s-inject-delay">Inject Pre-Delay (ms)</label>
+            <input id="s-inject-delay" type="number" data-key="injectDelay" min="0" max="5000" step="100" placeholder="500"/>
+            <span class="setting-hint">Time to wait for platform input to be ready before injecting.</span>
+          </div>
+          <div class="setting-row">
+            <label for="s-platform-useragent">Browser User-Agent</label>
+            <input id="s-platform-useragent" type="text" data-key="platformUserAgent"
+                   placeholder="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 …"/>
+            <span class="setting-hint">Overrides the webview user-agent for platform compatibility.</span>
+          </div>
+          <div class="setting-row">
+            <button id="settings-clear-platform-sessions" class="btn-secondary btn-danger">
+              Clear All Platform Sessions
+            </button>
+            <span class="setting-hint">Logs out of all platforms. You will need to log in again.</span>
+          </div>
+        </div>
+
+        <!-- ── Terminal / Kali ───────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">Terminal (Live Kali PTY)</div>
+          <div class="setting-row">
+            <label for="s-term-shell">Default Shell</label>
+            <input id="s-term-shell" type="text" data-key="termShell" placeholder="/bin/bash"/>
+            <span class="setting-hint">Path to shell: /bin/bash, /usr/bin/zsh, /bin/fish, etc.</span>
+          </div>
+          <div class="setting-row">
+            <label for="s-term-cwd">Starting Directory</label>
+            <input id="s-term-cwd" type="text" data-key="termCwd" placeholder="/root"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-term-font-size">Font Size</label>
+            <input id="s-term-font-size" type="number" data-key="termFontSize" min="8" max="32" step="1" placeholder="14"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-term-scrollback">Scrollback Lines</label>
+            <input id="s-term-scrollback" type="number" data-key="termScrollback" min="100" max="50000" step="100" placeholder="10000"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-term-cursor-blink">Cursor Blink</label>
+            <input id="s-term-cursor-blink" type="checkbox" data-key="termCursorBlink"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-term-cursor-style">Cursor Style</label>
+            <select id="s-term-cursor-style" data-key="termCursorStyle">
+              <option value="bar">Bar</option>
+              <option value="block">Block</option>
+              <option value="underline">Underline</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label for="s-term-env-kali">Kali Tool Hints</label>
+            <input id="s-term-env-kali" type="checkbox" data-key="termKaliHints"/>
+            <span class="setting-hint">Shows Kali Linux tool hints in the AI bridge bar.</span>
+          </div>
+        </div>
+
+        <!-- ── Voice ────────────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">Voice Engine</div>
+          <div class="setting-row">
+            <label for="s-voice-enabled">Enable Voice</label>
+            <input id="s-voice-enabled" type="checkbox" data-key="voiceEnabled"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-voice-tts">Auto-Speak Responses (TTS)</label>
+            <input id="s-voice-tts" type="checkbox" data-key="voiceTTSEnabled"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-voice-lang">STT Language</label>
+            <input id="s-voice-lang" type="text" data-key="voiceLang" placeholder="en-US"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-elevenlabs-key">ElevenLabs API Key</label>
+            <input id="s-elevenlabs-key" type="password" data-key="elevenLabsKey" placeholder="(for voice cloning)"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-elevenlabs-voice-id">ElevenLabs Voice ID</label>
+            <input id="s-elevenlabs-voice-id" type="text" data-key="elevenLabsVoiceId" placeholder="Voice ID from ElevenLabs"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-hotword">Hotword Detection ("hey modica")</label>
+            <input id="s-hotword" type="checkbox" data-key="hotwordEnabled"/>
+            <span class="setting-hint">Experimental — listens for "hey modica" to activate mic.</span>
+          </div>
+        </div>
+
+        <!-- ── Appearance ────────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">Appearance</div>
+          <div class="setting-row">
+            <label for="s-theme">Theme</label>
+            <select id="s-theme" data-key="theme">
+              <option value="dark">Dark (S3C Purple-Black)</option>
+              <option value="darker">Deeper Black</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label for="s-accent-color">Accent Color</label>
+            <input id="s-accent-color" type="color" data-key="accentColor" value="#9b59b6"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-font-size">UI Font Size</label>
+            <input id="s-font-size" type="range" data-key="fontSize" min="11" max="20" step="1"/>
+          </div>
+          <div class="setting-row">
+            <label for="s-sidebar-collapsed">Start Sidebar Collapsed</label>
+            <input id="s-sidebar-collapsed" type="checkbox" data-key="sidebarCollapsed"/>
+          </div>
+        </div>
+
+        <!-- ── Storage ──────────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="settings-section-title">Storage &amp; History</div>
+          <div class="setting-row">
+            <button id="settings-clear-history" class="btn-secondary btn-danger">
+              Clear All Conversation History
+            </button>
+          </div>
+          <div class="setting-row">
+            <button id="settings-export-history" class="btn-secondary">
+              Export History (JSON)
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /.settings-container -->
+    </section>
+
+  </main><!-- /#main-content -->
+</div><!-- /#app -->
+
+<!-- ═══════════════════════════ SCRIPTS ══════════════════════════════════════ -->
+<!-- Local xterm.js + FitAddon (copy from node_modules to assets/xterm/) -->
+<script src="../assets/xterm/xterm.js"></script>
+<script src="../assets/xterm/addon-fit.js"></script>
+<!-- Local marked.js (copy from node_modules to assets/marked/) -->
+<script src="../assets/marked/marked.min.js"></script>
+
+<!-- App modules — ORDER MATTERS -->
+<script src="storage.js"></script>
+<script src="persona.js"></script>
+<script src="ai-router.js"></script>
+<script src="voice.js"></script>
+<script src="voice-engine.js"></script>
+<script src="terminal.js"></script>
+<script src="webviews.js"></script>
+<script src="ai-platforms.js"></script>
+<script src="settings.js"></script>
+<script src="plugins.js"></script>
+<script src="app.js"></script>
+
+<script>
+  // Boot the app once all scripts are loaded
+  window.storageManager  = new StorageManager();
+  window.personaEngine   = new PersonaEngine();
+  window.aiRouter        = new AIRouter();
+  window.voiceManager    = new VoiceManager();
+  window.voiceEngine     = new VoiceEngine();
+  window.terminalManager = new TerminalManager();
+  window.webViewManager  = new WebViewManager();
+  window.platformManager = new PlatformManager();
+  window.settingsManager = new SettingsManager();
+  window.pluginManager   = new PluginManager();
+  window.appController   = new AppController();
+
+  window.addEventListener('DOMContentLoaded', () => {
+    window.appController.boot().catch(err => {
+      console.error('[MODICA] Boot error:', err);
+      const sub = document.getElementById('loading-sub');
+      if (sub) sub.textContent = 'Boot error: ' + err.message;
+    });
+  });
+</script>
+
+</body>
+</html>
