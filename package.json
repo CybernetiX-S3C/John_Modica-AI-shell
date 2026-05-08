@@ -1,0 +1,53 @@
+{
+  "name": "john-modica-ai",
+  "version": "2.0.0",
+  "description": "John Modica AI Shell – Electron Edition",
+  "main": "main.js",
+  "author": "John Modica",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:win": "electron-builder --win",
+    "rebuild": "electron-rebuild -f -w node-pty"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "better-sqlite3": "^9.4.3",
+    "axios": "^1.6.8",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.johnmodica.ai",
+    "productName": "John Modica AI",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!node_modules/.cache/**"
+    ],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility",
+      "icon": "assets/icon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "nativeRebuilder": "sequential"
+  }
+}
